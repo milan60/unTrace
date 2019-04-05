@@ -21,3 +21,11 @@ Shows a list of priviledge escalation exploits and for which kernel/OS Version t
 ### `unt escalate <exploit>`
 
 Runs the exploit defined in `<exploit>`.
+
+### `unt enum`
+
+Collects important information about the target system in a file called report.txt.
+
+### `unt download`
+
+Downloads a file from the server to the client via scp. This command will ask for the filepath.

