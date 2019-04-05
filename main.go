@@ -190,7 +190,7 @@ cat /dev/null > ~/.bash_history
 cat /dev/null > ~/.history
 kill -9 $$`);
         case "escalate":
-            return echo(`Available Priviledge exploits:
+            return echo(`Available Priviledge escalation exploits:
 pokemon       DirtyCOW AddUser (Ubuntu <4.4/<3.13; Debian <4.7.8)
 mempodipper   Mempodipper (Linux 2.6.39<3.2.2 Gentoo/Debian)
 overlayfs     overlayfs (Linux 3.13.0<3.19)
