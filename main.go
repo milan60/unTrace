@@ -76,7 +76,7 @@ func main() {
     clear()
 
 	// Request pseudo terminal
-	if err := session.RequestPty("vt220", 80, 40, modes); err != nil {
+	if err := session.RequestPty("vt220", 50, 150, modes); err != nil {
 		log.Fatalf("request for pseudo terminal failed: %s", err)
 	}
 
@@ -89,7 +89,7 @@ func main() {
     r1, w1, _ := os.Pipe()
     os.Stdout = w1
 
-    fmt.Fprint(in, "uname -m")
+    fmt.Fprint(in, "uname -m" + "\r\n" + "\r\n")
 
     outC1 := make(chan string)
     // copy the output in a separate goroutine so printing can't block indefinitely
@@ -119,7 +119,7 @@ func main() {
     r2, w2, _ := os.Pipe()
     os.Stdout = w2
 
-    fmt.Fprint(in, `wget -v >/dev/null 2>&1 || { echo >&2 "NOWGET"; }`)
+    fmt.Fprint(in, `wget -v >/dev/null 2>&1 || { echo >&2 "NOWGET"; }` + "\r\n" + "\r\n")
 
     outC2 := make(chan string)
     // copy the output in a separate goroutine so printing can't block indefinitely
@@ -230,20 +230,20 @@ func downloadFile(file string) {
     if _, err := os.Stat("./" + filepath.Base(file)); os.IsNotExist(err) {
         _, _ = os.Create("./" + filepath.Base(file))
     }
-    
-    // Close client connection after the file has been copied
-	defer client.Close()
-
-	// Close the file after it has been copied
-	defer f.Close()
 
 	// Finaly, copy the file over
 
 	err = client.CopyFile(f, file, "0655")
 
 	if err != nil {
+        client.Close()
+	   f.Close()
 		fmt.Println("Error while copying file ", err)
+        return
 	}
+    
+	client.Close()
+	f.Close()
     
     fmt.Println("Successfully downloaded the file")
 }
